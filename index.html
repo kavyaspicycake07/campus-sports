@@ -1,13 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
+{# emoji for each item name; unknown names get a trophy #}
+{% set icons = {'Cricket Bat':'🏏','Stumps Set':'🏏','Cricket Ball':'🔴','Basketball':'🏀','Football':'⚽','Carrom Board':'🎯','Chess Set':'♟️'} %}
 <h2>Equipment availability</h2>
-<p class="muted">Check here before walking to the gym.</p>
 <div class="grid">
 {% for i in items %}
-  <div class="card">
+  <div class="card item">
+    <div class="icon">{{ icons.get(i.name, '🏆') }}</div>
     <h3>{{ i.name }}</h3>
-    <p class="big {{ 'ok' if i.available > 0 else 'no' }}">{{ i.available }} of {{ i.total }} available</p>
-    {% if i.available == 0 %}<p class="muted">Next one back by {{ i.back_by }}</p>{% endif %}
+    <span class="badge {{ 'ok' if i.available > 0 else 'no' }}">{{ 'Available' if i.available > 0 else 'All issued' }}</span>
+    <p class="big">{{ i.available }} / {{ i.total }}</p>
+    <div class="track"><div class="fill {{ 'ok' if i.available > 0 else 'no' }}" style="width: {{ i.available / i.total * 100 }}%"></div></div>
+    {% if i.available == 0 %}<p class="muted">Back by {{ i.back_by }}</p>{% endif %}
   </div>
 {% endfor %}
 </div>

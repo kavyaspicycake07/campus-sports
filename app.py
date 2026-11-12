@@ -1,15 +1,37 @@
 # Campus Sports Hub - Flask + SQLite project
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import abort, Flask, render_template, request, redirect, url_for, session, flash
 import sqlite3
+import os
+import secrets
+from pathlib import Path
+from zoneinfo import ZoneInfo
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-app.secret_key = "change-this-secret"   # needed by Flask to keep the login session safe
-STAFF_PASSWORD = "gym123"               # change before demo
-DB = "sports.db"
+app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_SECURE=bool(os.environ.get("RENDER")))
+STAFF_PASSWORD = os.environ.get("STAFF_PASSWORD")
+DB = os.environ.get("DATABASE_PATH", str(Path(__file__).with_name("sports.db")))
+Path(DB).parent.mkdir(parents=True, exist_ok=True)
+
+def local_now():
+    return datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
 FMT = "%Y-%m-%d %H:%M:%S"               # one time format used everywhere
 ISSUE_MINUTES = 60                      # items are issued for 1 hour
 
+
+@app.before_request
+def csrf_protect():
+    if request.method == "POST":
+        token = session.get("csrf_token", "")
+        if not token or not secrets.compare_digest(token.encode(), request.form.get("csrf_token", "").encode()):
+            abort(400)
+
+@app.context_processor
+def csrf_context():
+    if "csrf_token" not in session:
+        session["csrf_token"] = secrets.token_hex(32)
+    return {"csrf_token": session["csrf_token"]}
 
 def get_db():
     conn = sqlite3.connect(DB)
@@ -18,7 +40,7 @@ def get_db():
 
 
 def now():
-    return datetime.now().strftime(FMT)
+    return local_now().strftime(FMT)
 
 
 def init_db():
@@ -70,17 +92,21 @@ def home():
 def gym():
     conn = get_db()
     if request.method == "POST":        # someone submitted a headcount
-        count = int(request.form["count"])
+        count = request.form.get("count", type=int)
+        if count is None:
+            conn.close()
+            return redirect(url_for("gym"))
         if 0 <= count <= 200:
             conn.execute("INSERT INTO crowd_reports(count, reported_at) VALUES (?,?)", (count, now()))
             conn.commit()
             flash("Thanks! Headcount saved.")
+        conn.close()
         return redirect(url_for("gym"))
 
     latest = conn.execute("SELECT * FROM crowd_reports ORDER BY id DESC LIMIT 1").fetchone()
     mins_ago = None
     if latest:
-        mins_ago = int((datetime.now() - datetime.strptime(latest["reported_at"], FMT)).total_seconds() // 60)
+        mins_ago = int((local_now() - datetime.strptime(latest["reported_at"], FMT)).total_seconds() // 60)
     # average headcount for every hour of the day (strftime('%H') extracts the hour)
     rows = conn.execute("""SELECT strftime('%H', reported_at) AS hr, AVG(count) AS avg
                            FROM crowd_reports GROUP BY hr ORDER BY hr""").fetchall()
@@ -94,7 +120,7 @@ def gym():
 @app.route("/staff/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        if request.form["password"] == STAFF_PASSWORD:
+        if STAFF_PASSWORD and secrets.compare_digest(request.form.get("password", "").encode(), STAFF_PASSWORD.encode()):
             session["staff"] = True     # remember that this browser is logged in
             return redirect(url_for("staff"))
         flash("Wrong password.")
@@ -113,17 +139,22 @@ def staff():
         return redirect(url_for("login"))
     conn = get_db()
     if request.method == "POST":        # issue an item
-        eq_id = int(request.form["equipment_id"])
-        item = next(i for i in get_equipment() if i["id"] == eq_id)
+        eq_id = request.form.get("equipment_id", type=int)
+        conn.execute("BEGIN IMMEDIATE")
+        item = conn.execute("SELECT e.name, e.total - (SELECT COUNT(*) FROM issues i WHERE i.equipment_id=e.id AND i.returned_at IS NULL) AS available FROM equipment e WHERE e.id=?", (eq_id,)).fetchone()
+        if item is None:
+            conn.close()
+            return redirect(url_for("staff"))
         if item["available"] <= 0:
             flash(item["name"] + " is not available.")
         else:
-            due = (datetime.now() + timedelta(minutes=ISSUE_MINUTES)).strftime(FMT)
+            due = (local_now() + timedelta(minutes=ISSUE_MINUTES)).strftime(FMT)
             conn.execute("""INSERT INTO issues(equipment_id, student_name, roll_no, issued_at, due_at)
                             VALUES (?,?,?,?,?)""",
                          (eq_id, request.form["name"], request.form["roll"], now(), due))
             conn.commit()
             flash(item["name"] + " issued.")
+        conn.close()
         return redirect(url_for("staff"))
 
     active = conn.execute("""SELECT i.id, e.name AS item, i.student_name, i.roll_no, i.due_at
@@ -146,6 +177,7 @@ def return_item(issue_id):
     return redirect(url_for("staff"))
 
 
+init_db()
+
 if __name__ == "__main__":
-    init_db()
-    app.run(debug=True)
+    app.run(debug=False)

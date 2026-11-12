@@ -7,7 +7,7 @@
 {% else %}<p>No reports yet. Be the first!</p>{% endif %}
 
 <h3>Report headcount</h3>
-<form method="post">
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input type="number" name="count" min="0" max="200" placeholder="People in gym now" required>
   <button>Submit</button>
 </form>

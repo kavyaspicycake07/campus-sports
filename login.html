@@ -1,5 +1,5 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>Staff login</h2>
-<form method="post"><input type="password" name="password" placeholder="Password" required><button>Login</button></form>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="password" name="password" placeholder="Password" required><button>Login</button></form>
 {% endblock %}
