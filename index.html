@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Equipment availability</h2>
+<p class="muted">Check here before walking to the gym.</p>
+<div class="grid">
+{% for i in items %}
+  <div class="card">
+    <h3>{{ i.name }}</h3>
+    <p class="big {{ 'ok' if i.available > 0 else 'no' }}">{{ i.available }} of {{ i.total }} available</p>
+    {% if i.available == 0 %}<p class="muted">Next one back by {{ i.back_by }}</p>{% endif %}
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

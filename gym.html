@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Gym crowd</h2>
+{% if latest %}
+  <div class="card"><p class="big">{{ latest.count }} people</p>
+  <p class="muted">Last updated {{ mins_ago }} min ago</p></div>
+{% else %}<p>No reports yet. Be the first!</p>{% endif %}
+
+<h3>Report headcount</h3>
+<form method="post">
+  <input type="number" name="count" min="0" max="200" placeholder="People in gym now" required>
+  <button>Submit</button>
+</form>
+
+<h3>Usual crowd by hour</h3>
+{% for h in hours %}
+  <div class="row"><span>{{ h.label }}</span>
+  <div class="bar" style="width: {{ h.width }}%">{{ h.avg }}</div></div>
+{% else %}<p class="muted">Chart appears after reports come in.</p>{% endfor %}
+{% endblock %}

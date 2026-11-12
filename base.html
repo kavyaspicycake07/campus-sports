@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Campus Sports Hub</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <nav>
+    <b>🏅 Campus Sports Hub</b>
+    <a href="{{ url_for('home') }}">Equipment</a>
+    <a href="{{ url_for('gym') }}">Gym Crowd</a>
+    <a href="{{ url_for('staff') }}">Staff</a>
+  </nav>
+  <main>
+    {% for m in get_flashed_messages() %}<div class="msg">{{ m }}</div>{% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

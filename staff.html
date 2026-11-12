@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Staff panel</h2> <a href="{{ url_for('logout') }}">Logout</a>
+<h3>Issue an item (1 hour)</h3>
+<form method="post">
+  <select name="equipment_id">
+    {% for i in items %}<option value="{{ i.id }}" {{ 'disabled' if i.available == 0 }}>{{ i.name }} ({{ i.available }} left)</option>{% endfor %}
+  </select>
+  <input name="name" placeholder="Student name" required>
+  <input name="roll" placeholder="Roll no." required>
+  <button>Issue</button>
+</form>
+
+<h3>Currently issued</h3>
+{% for a in active %}
+  <div class="card row">
+    <span>{{ a.item }} — {{ a.student_name }} ({{ a.roll_no }}) · due {{ a.due_text }}
+    {% if a.overdue %}<b class="no">OVERDUE</b>{% endif %}</span>
+    <form method="post" action="{{ url_for('return_item', issue_id=a.id) }}"><button>Mark returned</button></form>
+  </div>
+{% else %}<p class="muted">Nothing is issued right now.</p>{% endfor %}
+{% endblock %}
